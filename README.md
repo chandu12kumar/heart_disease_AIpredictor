@@ -98,6 +98,9 @@ HeartDisease-project/
 │   ├── test_model.py                        # Diagnostic test suite for model & scaler
 │   └── .env                                 # Environment configuration (Port, Debug)
 │
+├── docs/                                    # Project documentation & visual assets
+│   └── workflow.png                         # High-level architecture & pipeline diagram
+│
 ├── app.py                                   # Root runner proxy
 └── README.md                                # Repository documentation
 ```
@@ -108,20 +111,26 @@ HeartDisease-project/
 
 The system is split into an interactive client-side web application and a lightweight, high-performance machine learning inference service.
 
+<p align="center">
+  <img src="docs/workflow.png" alt="CardioGuard System Architecture and Workflow" width="850" />
+</p>
+
+### Pipeline Flowchart
+
 ```mermaid
 flowchart TD
     subgraph Frontend ["Frontend (React 19 + Tailwind CSS)"]
         A[User Enters 11 Health Metrics] --> B[Client Validation: Ranges & Format]
         B --> C[Post JSON to /api/predict]
-        J[Render Result Dashboard] <-- I[Receive Classification & Probability]
+        I[Receive Classification & Probability] --> J[Render Result Dashboard]
     end
 
     subgraph Backend ["Backend API (Flask & Python)"]
-        C --> D[utils/validation.py: Sanitization & Boundaries]
-        D --> E[Feature Mapping & One-Hot Encoding: 11 to 15 Dimensions]
-        E --> F[StandardScaler: Feature Normalization]
-        F --> G[K-Nearest Neighbors Classifier: K=5]
-        G --> H[Risk Stratification: Class 0/1 & Confidence Score]
+        C --> D["utils/validation.py: Sanitization & Boundaries"]
+        D --> E["Feature Mapping & One-Hot Encoding: 11 to 15 Dimensions"]
+        E --> F["StandardScaler: Feature Normalization"]
+        F --> G["K-Nearest Neighbors Classifier (K=5)"]
+        G --> H["Risk Stratification: Class 0/1 & Confidence Score"]
         H --> I
     end
 ```

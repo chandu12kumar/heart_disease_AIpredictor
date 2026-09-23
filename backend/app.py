@@ -121,8 +121,9 @@ def handle_internal_error(e):
     return jsonify({"error": "Internal server error. Please try again later."}), 500
 
 
+port = int(os.getenv("PORT", 5000))
+host = os.getenv("HOST", "0.0.0.0")
+
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5000))
-    host = os.getenv("HOST", "127.0.0.1")
     print(f"Starting CardioGuard AI Backend on http://{host}:{port}")
     app.run(host=host, port=port, debug=False)

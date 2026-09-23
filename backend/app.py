@@ -13,7 +13,7 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024
 
 # Enable CORS for all routes
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Initialize prediction service (loads model once)
 try:
@@ -31,6 +31,25 @@ def add_security_headers(response):
     return response
 
 
+@app.route("/", methods=["GET"])
+@app.route("/api", methods=["GET"])
+def index():
+    """Root endpoint providing service status and available endpoints."""
+    loaded = prediction_service is not None and prediction_service.is_loaded
+    return jsonify({
+        "status": "online",
+        "service": "CardioGuard AI Prediction API",
+        "model_loaded": loaded,
+        "endpoints": {
+            "health": "/api/health",
+            "features": "/api/features",
+            "predict": "/api/predict"
+        },
+        "version": "1.0.0"
+    }), 200
+
+
+@app.route("/health", methods=["GET"])
 @app.route("/api/health", methods=["GET"])
 def health_check():
     """Service health and model readiness check."""

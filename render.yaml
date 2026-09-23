@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: heart-disease-aipredictor
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt && cd frontend && npm install && npm run build
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8

@@ -31,23 +31,35 @@ class PredictionService:
                 return pickle.load(f)
 
     def load_models(self):
-        """Loads columns, scaler, and KNN model into memory."""
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        model_dir = os.path.join(base_dir, "model")
+        """Loads columns, scaler, and KNN model into memory using robust directory search."""
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # backend directory
+        root_dir = os.path.dirname(base_dir)  # project root directory
 
-        columns_path = os.path.join(model_dir, "columns.pkl")
-        scaler_path = os.path.join(model_dir, "scaler.pkl")
-        
-        # Support both KNN_heart.pkl and _heart.pkl
-        knn_path = os.path.join(model_dir, "KNN_heart.pkl")
-        if not os.path.exists(knn_path):
-            knn_path = os.path.join(model_dir, "_heart.pkl")
+        search_dirs = [
+            os.path.join(base_dir, "model"),
+            os.path.join(root_dir, "model"),
+            base_dir,
+            root_dir,
+        ]
+
+        def resolve_file(filenames):
+            for d in search_dirs:
+                for fn in filenames:
+                    candidate = os.path.join(d, fn)
+                    if os.path.exists(candidate):
+                        return candidate
+            raise FileNotFoundError(f"Model artifact not found. Searched for {filenames} in: {search_dirs}")
+
+        columns_path = resolve_file(["columns.pkl"])
+        scaler_path = resolve_file(["scaler.pkl"])
+        knn_path = resolve_file(["KNN_heart.pkl", "_heart.pkl"])
 
         self.columns = list(self._safe_load(columns_path))
         self.scaler = self._safe_load(scaler_path)
         self.model = self._safe_load(knn_path)
         self.is_loaded = True
-        print(f"[PredictionService] Successfully loaded model, scaler, and {len(self.columns)} feature columns.")
+        print(f"[PredictionService] Successfully loaded model artifacts: {len(self.columns)} features.")
+
 
     def get_features(self):
         return self.columns

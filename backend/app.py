@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
 
@@ -8,11 +8,14 @@ from utils.validation import validate_and_map_features, CLINICAL_SCHEMA
 
 load_dotenv()
 
-app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIST = os.path.join(BASE_DIR, "frontend", "dist")
+
+app = Flask(__name__, static_folder=None)
 # Max payload 1MB
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024
 
-# Enable CORS for all routes
+# Enable CORS for all routes (supports local React dev server on :5173)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Initialize prediction service (loads model once)
@@ -31,23 +34,9 @@ def add_security_headers(response):
     return response
 
 
-@app.route("/", methods=["GET"])
-@app.route("/api", methods=["GET"])
-def index():
-    """Root endpoint providing service status and available endpoints."""
-    loaded = prediction_service is not None and prediction_service.is_loaded
-    return jsonify({
-        "status": "online",
-        "service": "CardioGuard AI Prediction API",
-        "model_loaded": loaded,
-        "endpoints": {
-            "health": "/api/health",
-            "features": "/api/features",
-            "predict": "/api/predict"
-        },
-        "version": "1.0.0"
-    }), 200
-
+# =========================================================================
+# API Endpoints (Evaluated first)
+# =========================================================================
 
 @app.route("/health", methods=["GET"])
 @app.route("/api/health", methods=["GET"])
@@ -60,6 +49,7 @@ def health_check():
         "model_loaded": loaded,
         "features_count": len(prediction_service.columns) if loaded else 0
     }), (200 if loaded else 503)
+
 
 
 @app.route("/api/features", methods=["GET"])
@@ -123,7 +113,46 @@ def predict():
         }), 500
 
 
+# =========================================================================
+# React SPA and Static Asset Serving
+# =========================================================================
+
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_react(path):
+    """
+    Serves React SPA from frontend/dist:
+    - Never intercepts /api routes (unknown /api/* paths return JSON 404)
+    - Serves static assets directly if the file exists (js, css, images, etc.)
+    - Serves index.html for all client-side routes (/, /predict, /result, /recovery-tips, /about)
+    """
+    if path.startswith("api/") or path == "api":
+        return jsonify({"error": "Endpoint not found."}), 404
+
+    if path:
+        file_path = os.path.join(FRONTEND_DIST, path)
+        if os.path.isfile(file_path):
+            return send_from_directory(FRONTEND_DIST, path)
+
+    index_file = os.path.join(FRONTEND_DIST, "index.html")
+    if os.path.isfile(index_file):
+        return send_from_directory(FRONTEND_DIST, "index.html")
+
+    return jsonify({
+        "status": "online",
+        "service": "CardioGuard AI Prediction API",
+        "model_loaded": prediction_service is not None and prediction_service.is_loaded,
+        "endpoints": {
+            "health": "/api/health",
+            "features": "/api/features",
+            "predict": "/api/predict"
+        },
+        "message": "Frontend build not found. Run 'npm run build' inside frontend directory."
+    }), 200
+
+
 @app.errorhandler(400)
+
 def handle_bad_request(e):
     return jsonify({"error": "Bad request format or invalid input."}), 400
 
